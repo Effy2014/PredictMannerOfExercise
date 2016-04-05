@@ -1,0 +1,78 @@
+---
+title: "MachineLearning.Rmd"
+author: "Xinli Wang"
+date: "April 5, 2016"
+output: html_document
+---
+```{r}
+setwd("~/Desktop")
+library(rmarkdown)
+library(caret)
+```
+
+Read data into R 
+
+```{r}
+train <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+```
+
+Deleting the columns with missing values
+
+```{r}
+ntrain <- dim(train)[1]
+test <- test[,-160]
+test$classe <- "A"
+total <- rbind(train, test)
+total <- total[,-(1:7)]
+total.sub <- total[,apply(is.na(total), 2, sum)==0]
+total.sub <- total.sub[, -(1:5)]
+train.sub <- total.sub[1:ntrain, ]
+test.sub <- total.sub[-(1:ntrain), ]
+```
+
+Correlation Matrix 
+```{r}
+corMat <- cor(train.sub[,1:47])
+diag(corMat)=0
+1 %in% corMat
+```
+There is no linear correlated variables
+
+```{r}
+nZV <- nearZeroVar(train.sub, saveMetrics = T)
+```
+
+split data into train and validation
+
+```{r}
+index <- createDataPartition(train.sub$classe, p=0.5, list = F)
+train.small <- train.sub[index, ]
+validation <- train.sub[-index, ]
+```
+
+Building SVM Model
+
+```{r}
+library(e1071)
+model.1 <- svm(classe~., data = train.small, kernel = "radial")
+pred.train <- predict(model.1, train.small)
+pred.1 <- predict(model.1, validation)
+confusionMatrix(validation$classe, pred.1)
+```
+
+Building Random Forest Model
+
+```{r}
+library(randomForest)
+model.2 <- randomForest(classe~., data = train.small, importance=T)
+pred.2 <- predict(model.2, validation)
+confusionMatrix(validation$classe, pred.2)
+```
+
+Random Forest Model performance pretty good. The out-of-sample accuracy is 98.32%. So using Random Forest model for prediction.
+
+```{r}
+pred <- predict(model.2, test.sub)
+pred
+```
